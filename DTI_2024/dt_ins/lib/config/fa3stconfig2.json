@@ -1,0 +1,19 @@
+{	
+	"assetConnections": [
+		{
+
+            "@class": "de.fraunhofer.iosb.ilt.faaast.service.assetconnection.mqtt.MqttAssetConnection",
+            "subscriptionProviders":
+                    {
+                        "[ModelRef](Submodel)[IRI]http://www.lg.co.kr/refrigerator/Innercase/QualityInspectionEquipment/Data,(SubmodelElementCollection)[ID_SHORT]DataInfo,(SubmodelElementCollection)[ID_SHORT]Equipment,(SubmodelElementCollection)[ID_SHORT]EquipmentParameters4,(Property)[ID_SHORT]ParameterValue":
+                                {
+                                	"format": "JSON",                              
+                                    "topic": "test"
+                              
+                                }
+                    },
+            "serverUri": "tcp://localhost",
+            "clientID": "FAST MQTT Client"
+		}
+	]
+}
