@@ -9,8 +9,12 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/st
 
 # 2. Argo Workflows 설치 (Emissary Executor 사용 - 속도 및 안정성 최적화)
 echo ">> Argo Workflows 설치 중..."
-kubectl apply -n argo -f https://github.com/argoproj/argo-workflows/releases/latest/download/quick-start-minimal.yaml
+kubectl apply -n argo -f https://github.com/argoproj/argo-workflows/releases/latest/download/install.yaml
 
+kubectl create clusterrolebinding argo-admin-binding \
+  --clusterrole=admin \
+  --serviceaccount=argo:default
+  
 # 3. Argo Workflows 설정 최적화 (하드웨어 성능 반영)
 kubectl patch deployment workflow-controller -n argo --type json -p='[
   {"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": [
