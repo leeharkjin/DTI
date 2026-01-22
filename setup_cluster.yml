@@ -1,0 +1,52 @@
+- hosts: k8s_cluster
+  become: yes
+  tasks:
+    - name: 1. 시스템 기본 업데이트 및 필수 패키지 설치
+      apt:
+        update_cache: yes
+        name: [curl, gpg, apt-transport-https, software-properties-common, pciutils]
+
+    - name: 2. NVIDIA GPU 존재 여부 확인
+      shell: lspci | grep -i nvidia
+      register: gpu_check
+      ignore_errors: yes
+
+    - name: 3. NVIDIA 드라이버 및 툴킷 설치 (GPU 노드 전용)
+      when: gpu_check.rc == 0
+      block:
+        - name: 추천 드라이버 자동 설치
+          shell: ubuntu-drivers autoinstall
+        - name: NVIDIA Container Toolkit 레포지토리 추가
+          shell: |
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes
+            curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+        - name: Toolkit 설치
+          apt:
+            update_cache: yes
+            name: nvidia-container-toolkit
+        - name: Blackwell 대응 GSP 펌웨어 활성화
+          copy:
+            dest: /etc/modprobe.d/nvidia-gsp.conf
+            content: "options nvidia NVreg_EnableGpuFirmware=1"
+
+    - name: 4. 컨테이너 런타임(Containerd) 및 K8s 설치
+      shell: |
+        # Swap off
+        swapoff -a && sed -i '/swap/d' /etc/fstab
+        # Containerd 설치 및 설정
+        apt install -y containerd
+        mkdir -p /etc/containerd
+        containerd config default > /etc/containerd/config.toml
+        sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+        systemctl restart containerd
+        # K8s 설치
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg --yes
+        echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' > /etc/apt/sources.list.d/kubernetes.list
+        apt update && apt install -y kubelet kubeadm kubectl
+        apt-mark hold kubelet kubeadm kubectl
+
+    - name: 5. GPU 런타임 연동 (GPU 노드만)
+      when: gpu_check.rc == 0
+      shell: |
+        nvidia-ctk runtime configure --runtime=containerd
+        systemctl restart containerd
